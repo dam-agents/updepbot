@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/dam-agents/dam-starter-kits/main/kit.schema.json
+# The starter kit this definition is offered as. It lives here, beside the
+# definition it describes, so a change to the agent and a change to the kit
+# offering it are the same commit.
+schemaVersion: v1
+id: updepbot
+name: UpDepBot
+tagline: Keeps known vulnerabilities from piling up in a repository.
+description: >-
+  Sweeps a repository's open vulnerability alerts on a cadence, fixes them in
+  whichever ecosystems the repository actually uses, opens one pull request,
+  and drives it until the checks and the automated review pass before handing
+  it to a reviewer you name. It never merges.
+category: software
+icon: shield
+docsUrl: https://github.com/dam-agents/updepbot
+harnesses: [claude-code]
+
+# `self` is this repository, at the commit the kit was resolved at, so an
+# agent always runs the definition this file shipped with. Into $HOME, because
+# the repository it maintains belongs in work/.
+seed:
+  self: true
+  into: home
+
+# The fixes are version bumps, so the agent reaches the package registries of
+# whichever ecosystems the repository uses. The trusted preset is where those
+# already are; a repository on a private registry needs a rule for it, which
+# onboarding asks about.
+egressPreset: trusted
+
+resources:
+  cpu: "2"
+  memory: 4Gi
+  storage: 20Gi
+  note: >-
+    One checkout of the maintained repository, plus whatever its own build and
+    test tooling installs to verify a bump. A lockfile refresh in a large
+    monorepo is the peak, not the model.
+
+connections:
+  - accepts: [github, github-enterprise]
+    required: true
+    note: >-
+      Reads the repository's security alerts, pushes the fix branch, opens the
+      pull request and requests the review.
+
+channels:
+  - type: slack
+    note: >-
+      Where a sweep reports what it could not fix on its own — a vulnerability
+      with no released fix, or one whose fix is a breaking change.
+
+schedules:
+  # Daily, before the working day in most of Europe. The precheck is what makes
+  # a daily cadence affordable: it asks GitHub for the open alerts and declines
+  # the fire when there are none, so a quiet repository costs no turn.
+  - name: cve-sweep-daily
+    cron: "0 5 * * *"
+    sessionMode: fresh
+    precheck: $HOME/scripts/precheck-sweep.sh
+    task: Run the vulnerability sweep — CLAUDE.md → "The sweep".
+
+  # Every half hour, gated on there being an open fix pull request that is not
+  # yet green and approved. A pull request that is already mergeable declines
+  # the fire, so this costs nothing between sweeps.
+  #
+  # `fresh`, because what one run needs to know about the one before it is in
+  # the pull request: its checks, its review comments and its commits all
+  # outlive a session.
+  - name: cve-pr-to-green-30m
+    cron: "*/30 * * * *"
+    sessionMode: fresh
+    precheck: $HOME/scripts/precheck-pr.sh
+    task: Take the open fix pull requests to green — CLAUDE.md → "Taking a pull request to green".
+
+  # Suggested, so it arrives disabled: a weekly digest is worth having on a
+  # repository with a backlog and noise on one without.
+  - name: cve-report-weekly
+    cron: "0 7 * * 1"
+    sessionMode: fresh
+    enabled: false
+    task: Report what is still open — CLAUDE.md → "The weekly report".
