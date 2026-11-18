@@ -23,6 +23,7 @@ it is missing, say onboarding has not run and stop.
 host="$(cfg host)"; [ -n "$host" ] && export GH_HOST="$host"
 REPO="$(cfg repo)"
 REVIEWER="$(cfg reviewer)"
+AUTO="$(cfg auto_reviewer)"
 BASE="$(cfg base_branch)"; BASE="${BASE:-$(gh api "repos/$REPO" --jq .default_branch)}"
 prefix="$(cfg branch_prefix)"; prefix="${prefix:-updepbot/}"
 gh pr list --repo "$REPO" --state open --limit 100 \
@@ -117,7 +118,8 @@ Check the reviewed commit when `auto_reviewer` is set:
 ```sh
 head="$(gh pr view <n> --repo "$REPO" --json headRefOid --jq .headRefOid)"
 gh api "repos/$REPO/pulls/<n>/reviews?per_page=100" \
-  | jq -r --arg h "$head" '[.[] | select(.commit_id == $h)] | length'
+  | jq -r --arg h "$head" --arg b "$AUTO" \
+      '[.[] | select(.commit_id == $h and ((.user.login // "") == $b))] | length'
 ```
 
 `0` means the current head has not been reviewed yet: wait for the next fire.
