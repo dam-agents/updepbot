@@ -40,4 +40,9 @@ fi
   fail=1
 }
 
+[ -s "$HOME/work/repository.md" ] || {
+  echo "FAIL: $HOME/work/repository.md is missing — fix: write what you learned about the repository (ONBOARDING.md step 4)"
+  fail=1
+}
+
 [ "$fail" -eq 0 ] && echo PASS || exit 1

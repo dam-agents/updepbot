@@ -109,7 +109,9 @@ Do this every sweep, not once: a repository grows ecosystems.
   regenerated with its own tool, never hand-edited.
 - **Whether it has a minimum release age.** If the policy documents a security
   exception, take it for this fix and say so in the pull request. If it does not,
-  a fixed release younger than the floor is reported and retried next sweep.
+  a fixed release younger than the floor is reported and retried next sweep. Check
+  the release date at the registry (`npm view <pkg> time.<version>`, the PyPI JSON,
+  `go list -m -json <module>@<version>`, crates.io) or in the changelog.
 
 Write what you learn into `work/repository.md`, and correct it when it turns out to
 be wrong.
@@ -141,6 +143,10 @@ npm install <pkg>@<fixed>          # add --workspace <path> when the manifest is
 bun update <pkg>@<fixed>
 ```
 
+In a workspace, target the package that owns the manifest: `pnpm --filter <name>
+update <pkg>@<fixed>`, `yarn workspace <name> up <pkg>@<fixed>`, or `npm install
+--workspace <path> <pkg>@<fixed>`. Do not update the root by accident.
+
 A transitive package: `pnpm why <pkg>` / `npm ls <pkg>` / `yarn why <pkg>` finds the
 direct dependency to bump. Only when no released direct version fixes it, use
 `pnpm.overrides`, `overrides` or `resolutions`, and say in the pull request that it
@@ -155,6 +161,9 @@ pipenv update <pkg>
 pip-compile --upgrade-package <pkg> <input>.in
 # plain requirements.txt: change the pin to <pkg>==<fixed>
 ```
+
+When the manifest bound excludes `fixed`, raise it to the lowest bound that allows
+the fixed release, in the style the file already uses, then re-lock.
 
 **Go** — `go.mod`.
 
@@ -210,6 +219,9 @@ One pull request per sweep, not one per alert: the fixes share lockfiles, so sep
 pull requests would conflict. If there is nothing to fix — every finding is a
 hand-back — do not open a pull request; report instead.
 
+Read `From` from the manifest or lockfile before you write the body; the alert gives
+the vulnerable range, not the installed version.
+
 Write the body to a file:
 
 ```markdown
@@ -232,9 +244,11 @@ Fixes <n> Dependabot advisories in <repo>.
 `<verify>` — pass.
 ```
 
-Then open it ready, not as a draft, so the repository's review starts:
+Push the branch, then open it ready, not as a draft, so the repository's review
+starts:
 
 ```sh
+git -C "$HOME/work/repo" push -u origin "$branch"
 gh pr create --repo "$REPO" --base "$BASE" --head "$branch" \
   --title "fix(deps): clear <n> dependency advisories (<date>)" \
   --body-file "$body"

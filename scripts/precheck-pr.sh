@@ -41,7 +41,7 @@ if ! actionable=$(printf '%s' "$prs" | jq -r \
        elif $pr.mergeable == "CONFLICTING" then "conflicts with the base branch"
        elif $pr.reviewDecision == "CHANGES_REQUESTED" then "changes requested"
        elif $pr.reviewDecision == "APPROVED" and ($pr | running | not) and ($pr | handedOver | not) then "approved and green, ready to hand over"
-       elif $pr.reviewDecision != "APPROVED" and ($pr | running | not) and ($pr | requested($bot) | not) then "nobody is reviewing it"
+       elif $pr.reviewDecision != "APPROVED" and ($pr | running | not) and ($pr | requested($bot) | not) and ($pr | handedOver | not) then "nobody is reviewing it"
        else empty end) as $why
     | "PR #\($pr.number) \($pr.headRefName) — \($why)"
   ] | .[]'); then
