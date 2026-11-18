@@ -27,7 +27,7 @@ BASE="$(cfg base_branch)"; BASE="${BASE:-$(gh api "repos/$REPO" --jq .default_br
 prefix="$(cfg branch_prefix)"; prefix="${prefix:-updepbot/}"
 gh pr list --repo "$REPO" --state open --limit 100 \
   --json number,headRefName,isDraft \
-  --jq ".[] | select(.headRefName | startswith(\"$prefix\")) | \"\(.number) \(.headRefName)\""
+  | jq -r --arg p "$prefix" '.[] | select(.headRefName | startswith($p)) | "\(.number) \(.headRefName)"'
 ```
 
 If there is no such pull request, say so and stop. There is normally one; if there
@@ -103,6 +103,8 @@ request: it is faster and cheaper. If the repository's own guide names one, use 
 It is ready when:
 
 - no check is failing, and none is still running (neutral and skipped are green);
+- if the repository has CI, its checks have started; an empty check rollup on a
+  repository with CI is not green — wait for the next fire;
 - `mergeable` is not `CONFLICTING`;
 - `reviewDecision` is not `CHANGES_REQUESTED`;
 - with `auto_reviewer` set, its latest review is on the current head and it is not
