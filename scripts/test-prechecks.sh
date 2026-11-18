@@ -14,9 +14,20 @@ cat > "$TMP/bin/gh" <<'STUB'
 set -uo pipefail
 case "${1:-}" in
   pr)
-    [ "${2:-}" = list ] || exit 1
-    [ "${FAKE_PR_EXIT:-0}" -eq 0 ] || exit "$FAKE_PR_EXIT"
-    printf '%s\n' "${FAKE_PRS:-[]}"
+    case "${2:-}" in
+      list)
+        [ "${FAKE_PR_EXIT:-0}" -eq 0 ] || exit "$FAKE_PR_EXIT"
+        printf '%s\n' "${FAKE_PRS:-[]}"
+        ;;
+      view)
+        if [ -n "${FAKE_PR_VIEW:-}" ]; then
+          printf '%s\n' "$FAKE_PR_VIEW"
+        else
+          printf '%s\n' '{"headRefOid":"","reviews":[]}'
+        fi
+        ;;
+      *) exit 1 ;;
+    esac
     ;;
   api)
     [ "${FAKE_API_EXIT:-0}" -eq 0 ] || exit "$FAKE_API_EXIT"
@@ -84,7 +95,8 @@ FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"M
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"APPROVED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[]}]' check "pr: approved and green" 0 precheck-pr.sh "hand over"
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"APPROVED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[{"login":"alice"}],"assignees":[]}]' check "pr: already handed over" 1 precheck-pr.sh
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"REVIEW_REQUIRED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[{"login":"alice"}]}]' check "pr: handed over, not approved" 1 precheck-pr.sh
-FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"CHANGES_REQUESTED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[]}]' check "pr: changes requested" 0 precheck-pr.sh "changes requested"
+FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","headRefOid":"sha1","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"CHANGES_REQUESTED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[]}]' FAKE_PR_VIEW='{"headRefOid":"sha1","reviews":[{"state":"CHANGES_REQUESTED","commit_id":"sha1"}]}' check "pr: changes requested on head" 0 precheck-pr.sh "changes requested"
+FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","headRefOid":"sha2","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"CHANGES_REQUESTED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[]}]' FAKE_PR_VIEW='{"headRefOid":"sha2","reviews":[{"state":"CHANGES_REQUESTED","commit_id":"sha1"}]}' check "pr: changes requested already fixed" 1 precheck-pr.sh
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"CONFLICTING","reviewDecision":"","statusCheckRollup":[],"reviewRequests":[],"assignees":[]}]' check "pr: conflict" 0 precheck-pr.sh "conflicts"
 FAKE_PRS='[]' FAKE_PR_EXIT=1 check "pr: GitHub fails open" 2 precheck-pr.sh
 
