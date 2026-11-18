@@ -1,0 +1,23 @@
+# This repository is checked out at the agent's $HOME (/home/agent), beside
+# secrets and runtime state: .ssh, .claude, .config, work/. Ignore everything at
+# the top level and re-include only the definition files this repo tracks, so a
+# `git add -A` in $HOME can never capture a secret or a state file.
+/*
+!/.gitignore
+!/AGENTS.md
+!/CLAUDE.md
+!/LICENSE
+!/ONBOARDING.md
+!/README.md
+!/kit.yaml
+!/.github/
+!/scripts/
+!/.agents/
+
+# The platform installs its own skills beside ours in .agents/skills/; only the
+# bundled ones are definition content.
+/.agents/skills/*
+!/.agents/skills/updep-sweep/
+!/.agents/skills/pr-to-green/
+
+.DS_Store

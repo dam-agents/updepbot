@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/dam-agents/dam-starter-kits/main/kit.schema.json
+# The starter kit this definition is offered as. It lives beside the definition
+# it describes, so a change to the agent and a change to the kit offering it
+# are the same commit.
+schemaVersion: v1
+id: updepbot
+name: UpDepBot
+tagline: Keeps known vulnerabilities from piling up in one repository.
+description: >-
+  Sweeps one repository's open Dependabot alerts on a schedule, fixes every
+  advisory that has a released fix in npm, Python, Go or Rust, whichever the
+  repository uses, verifies with the repository's own checks, and opens one
+  pull request.
+  Then it drives that pull request: reads the failing checks, answers the
+  review, resolves conflicts, and hands it to the reviewer you named once it is
+  green. It never merges. An advisory with no released fix, or one whose only
+  fix is a breaking change you did not authorise, is reported back to you.
+category: software
+icon: shield
+docsUrl: https://github.com/dam-agents/updepbot
+harnesses: [claude-code]
+
+# `self` is this repository at the commit the kit was resolved at, so an agent
+# always runs the definition this file shipped with. Into $HOME: the definition
+# is the agent's home, and the repository it maintains lives in work/repo/.
+seed:
+  self: true
+  into: home
+
+# The default egress preset (`trusted`) covers the public package registries. A
+# private registry needs a rule its owner adds after create.
+
+connections:
+  - accepts: [github, github-enterprise]
+    required: true
+    note: >-
+      Reads the repository's Dependabot alerts, pushes the fix branch, opens the
+      pull request and requests the reviewer. The credential needs contents
+      write, pull requests write, Dependabot alerts read, checks read and actions
+      read. A classic personal access token covers them with `repo` and
+      `security_events`.
+
+bundledSkills:
+  path: .agents/skills
+
+schedules:
+  # Daily. The precheck asks GitHub for the open alerts and declines the fire
+  # when there are none, so a quiet repository costs no model turn.
+  - name: updepbot-sweep-daily
+    cron: "0 5 * * *"
+    description: Sweeps the open Dependabot alerts and opens one fix pull request.
+    sessionMode: fresh
+    precheck: bash "$HOME/scripts/precheck-sweep.sh"
+    task: Run the sweep — CLAUDE.md → "The sweep".
+
+  # Every half hour, gated on a fix pull request that has something to do: a
+  # draft, a red check, a conflict, a review to answer, or a green pull request
+  # still to hand over. Waiting is declined.
+  - name: updepbot-pr-30m
+    cron: "*/30 * * * *"
+    description: Drives the open fix pull request to green and hands it to the named reviewer.
+    sessionMode: fresh
+    precheck: bash "$HOME/scripts/precheck-pr.sh"
+    task: Take the fix pull request to green — CLAUDE.md → "The pull request".

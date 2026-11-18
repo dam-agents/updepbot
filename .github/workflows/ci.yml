@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  kit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-save ajv ajv-formats yaml
+      - name: kit.yaml matches the published and platform schemas
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/dam-agents/dam-starter-kits/main/kit.schema.json -o catalog-kit.schema.json
+          curl -fsSL https://raw.githubusercontent.com/dam-agents/dam/main/helm/starter-kits/kit.schema.json -o platform-kit.schema.json
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { parse } from "yaml";
+            import Ajv2020 from "ajv/dist/2020.js";
+            import addFormats from "ajv-formats";
+            const kit = parse(readFileSync("kit.yaml", "utf8"));
+            for (const file of ["catalog-kit.schema.json", "platform-kit.schema.json"]) {
+              const ajv = new Ajv2020({ strict: false, allErrors: true });
+              addFormats(ajv);
+              const validate = ajv.compile(JSON.parse(readFileSync(file, "utf8")));
+              if (!validate(kit)) {
+                console.error(file, validate.errors);
+                process.exit(1);
+              }
+              console.log("ok kit.yaml against " + file);
+            }
+          '
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shell syntax
+        run: |
+          for f in scripts/*.sh scripts/lib/*.sh; do bash -n "$f"; done
+      - name: precheck fixtures
+        run: bash scripts/test-prechecks.sh
