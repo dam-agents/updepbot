@@ -35,7 +35,8 @@ connections:
     required: true
     note: >-
       Reads the repository's Dependabot alerts, pushes the fix branch, opens the
-      pull request and requests the reviewer. The credential needs contents
+      pull request and assigns the reviewer (and requests a review when the reviewer
+      is not the pull request's author). The credential needs contents
       write, pull requests write, Dependabot alerts read, checks read and actions
       read. A classic personal access token covers them with `repo` and
       `security_events`.

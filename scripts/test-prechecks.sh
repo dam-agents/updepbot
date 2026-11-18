@@ -105,6 +105,8 @@ FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"M
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"","statusCheckRollup":[{"conclusion":null,"status":"IN_PROGRESS"}],"reviewRequests":[],"assignees":[]}]' check "pr: only running" 1 precheck-pr.sh
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"APPROVED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[]}]' check "pr: approved and green" 0 precheck-pr.sh "hand over"
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"APPROVED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[{"login":"alice"}],"assignees":[]}]' check "pr: already handed over" 1 precheck-pr.sh
+FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"APPROVED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[{"login":"alice"}]}]' check "pr: assigned to the reviewer" 1 precheck-pr.sh
+FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"APPROVED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[{"login":"Alice"}]}]' check "pr: assigned to the reviewer, different case" 1 precheck-pr.sh
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"REVIEW_REQUIRED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[{"login":"alice"}]}]' check "pr: handed over, not approved" 1 precheck-pr.sh
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":false,"mergeable":"MERGEABLE","reviewDecision":"CHANGES_REQUESTED","statusCheckRollup":[{"conclusion":"SUCCESS","status":"COMPLETED"}],"reviewRequests":[],"assignees":[]}]' FAKE_PR_VIEW='{"reviews":[{"id":"rev1","state":"CHANGES_REQUESTED"}]}' check "pr: changes requested" 0 precheck-pr.sh "changes requested"
 mkdir -p "$HOME/work/reviewed" && printf 'rev1\n' > "$HOME/work/reviewed/1"
@@ -120,7 +122,7 @@ FAKE_PRS='[]' FAKE_PR_EXIT=1 check "pr: GitHub fails open" 2 precheck-pr.sh
 mkdir -p "$HOME/work/repo/.git"
 printf 'notes\n' > "$HOME/work/repository.md"
 FAKE_USER=bot check "verify: valid shape" 0 verify-onboarding.sh PASS
-FAKE_USER=alice check "verify: reviewer is the connection" 1 verify-onboarding.sh "reviewer is"
+FAKE_USER=alice check "verify: reviewer is the connection is accepted" 0 verify-onboarding.sh PASS
 write_config "- auto_reviewer: bot
 - auto_review_trigger: nonsense"
 FAKE_USER=bot check "verify: bad review trigger" 1 verify-onboarding.sh "auto_review_trigger"

@@ -67,8 +67,9 @@ conflict, re-request the automated review, and stop. The next fire continues. A
 draft is a person's decision; leave it alone.
 
 When the checks are green, the review is resolved and there is no conflict, assign
-and request `reviewer`, then report the link and a one-line summary. **Never merge.**
-Merging is the reviewer's, always.
+`reviewer`, and request the review too unless the reviewer is the pull request's
+author (the connection's own account); then report the link and a one-line summary.
+**Never merge.** Merging is the reviewer's, always.
 
 ## Reports
 

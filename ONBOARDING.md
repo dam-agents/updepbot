@@ -41,10 +41,12 @@ confirming or correcting rather than composing from nothing.
 - **Repository** — `owner/name`. One repository, not a list. Ask; do not assume.
   If it is on a GitHub Enterprise host, ask for that host too and record it as
   `host`; on github.com, leave `host` out.
-- **Reviewer** — the GitHub login to assign and request when a fix is green. This is
-  the person who decides the merge; you never merge. It must not be the account the
-  connection signs in as: GitHub refuses a review from the pull request's author.
-  Check `gh api user --jq .login`; if it matches, ask for someone else.
+- **Reviewer** — the GitHub login to assign when a fix is green. This is the person
+  who decides the merge; you never merge. The account the connection signs in as is
+  a valid answer: GitHub will not request a review from the pull request's author,
+  so at hand-over you assign the pull request to that account and skip the review
+  request; if the reviewer is someone else, you request and assign. You do not need
+  to check which account the connection is.
 - **Breaking changes** — when the only fixed release is a major (or a minor whose
   changelog breaks something the repository uses), do you *report it and stop*
   (the default) or *migrate it in the same pull request*? Record `report` or
