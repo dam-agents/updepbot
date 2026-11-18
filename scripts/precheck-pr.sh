@@ -19,23 +19,25 @@ prefix="$(cfg branch_prefix)"; prefix="${prefix:-updepbot/}"
 bot="$(cfg auto_reviewer)"
 
 if ! prs=$(gh pr list --repo "$repo" --state open --limit 100 \
-  --json number,headRefName,headRefOid,isDraft,mergeable,reviewDecision,statusCheckRollup,reviewRequests,assignees 2>/dev/null); then
+  --json number,headRefName,isDraft,mergeable,reviewDecision,statusCheckRollup,reviewRequests,assignees 2>/dev/null); then
   exit 2
 fi
 
-# A changes-requested review on an older commit means the fix is already pushed
-# and the agent is waiting for the next review. Only a review on the current
-# head is work to do; without this, the fire would repeat every half hour for as
-# long as the reviewer takes.
+# A changes-requested review the agent already addressed is not work to do.
+# The agent records the review id it answered in work/reviewed/<n>; a new review
+# has a new id, so this also skips a repeated wake while the reviewer is away.
 reviews='[]'
 for n in $(printf '%s' "$prs" | jq -r --arg p "$prefix" \
   '.[] | select(.headRefName | startswith($p)) | select(.reviewDecision == "CHANGES_REQUESTED") | .number'); do
-  if ! view=$(gh pr view "$n" --repo "$repo" --json headRefOid,reviews 2>/dev/null); then
+  if ! view=$(gh pr view "$n" --repo "$repo" --json reviews 2>/dev/null); then
     exit 2
   fi
-  if ! reviews=$(jq -nc --argjson acc "$reviews" --argjson v "$view" --argjson n "$n" '
+  seen=""
+  [ -r "$HOME/work/reviewed/$n" ] && seen="$(head -n 1 "$HOME/work/reviewed/$n")"
+  if ! reviews=$(jq -nc --argjson acc "$reviews" --argjson v "$view" --argjson n "$n" --arg seen "$seen" '
     $acc + [{number: $n,
-             changes: ([$v.reviews[]? | select(.state == "CHANGES_REQUESTED") | .commit_id] | last // "")}]
+             id: ([$v.reviews[]? | select(.state == "CHANGES_REQUESTED") | .id] | last // ""),
+             seen: $seen}]
   '); then
     exit 2
   fi
@@ -51,8 +53,8 @@ if ! actionable=$(printf '%s' "$prs" | jq -r \
   def running: any(.statusCheckRollup[]?; (state == "") or ((.status // "") | ascii_upcase | IN("QUEUED","IN_PROGRESS","WAITING","PENDING")) or (state == "PENDING"));
   def requested($who): ($who != "") and any(.reviewRequests[]?; ((.login // .slug // "") == $who));
   def handedOver: requested($human) or any(.assignees[]?; .login == $human);
-  def changesOnHead($n; $head):
-    ([ $reviews[]? | select(.number == $n) | .changes ] | last // "") == $head;
+  def changesOpen($n):
+    any($reviews[]?; .number == $n and .id != .seen);
 
   [ .[]
     | select(.headRefName | startswith($prefix))
@@ -60,7 +62,7 @@ if ! actionable=$(printf '%s' "$prs" | jq -r \
     | (if $pr.isDraft then "draft, not yet under review"
        elif ($pr | failing) then "a check is failing"
        elif $pr.mergeable == "CONFLICTING" then "conflicts with the base branch"
-       elif $pr.reviewDecision == "CHANGES_REQUESTED" and ($pr | changesOnHead($pr.number; $pr.headRefOid)) then "changes requested"
+       elif $pr.reviewDecision == "CHANGES_REQUESTED" and changesOpen($pr.number) then "changes requested"
        elif $pr.reviewDecision == "CHANGES_REQUESTED" then empty
        elif $pr.reviewDecision == "APPROVED" and ($pr | running | not) and ($pr | handedOver | not) then "approved and green, ready to hand over"
        elif $pr.reviewDecision != "APPROVED" and ($pr | running | not) and ($pr | requested($bot) | not) and ($pr | handedOver | not) then "nobody is reviewing it"

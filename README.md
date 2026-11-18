@@ -33,7 +33,8 @@ the cheap question first and declines the fire when there is nothing to do.
 
 Runtime state lives in `work/`, which is never tracked: `work/CONFIG.md` is the
 onboarding answer, `work/repo/` the maintained checkout, `work/repository.md` what
-the agent learned about building and testing it.
+the agent learned about building and testing it, and `work/reviewed/<n>` the
+changes-requested review the agent last answered on a pull request.
 
 ## Setting it up
 

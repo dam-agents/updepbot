@@ -81,6 +81,18 @@ gh pr ready <n> --repo "$REPO"
 
 Push the fixes. A push usually re-runs the checks.
 
+When the review you addressed was `CHANGES_REQUESTED`, record its id so the
+precheck stops waking for it while the reviewer is away:
+
+```sh
+review="$(gh api "repos/$REPO/pulls/<n>/reviews?per_page=100" \
+  --jq '[.[] | select(.state == "CHANGES_REQUESTED")] | last | .id')"
+[ -n "$review" ] && mkdir -p "$HOME/work/reviewed" \
+  && printf '%s\n' "$review" > "$HOME/work/reviewed/<n>"
+```
+
+A new review has a new id, so the next fire runs again.
+
 ## 5. Ask the automated reviewer for another round
 
 When `auto_reviewer` is set and it has not reviewed the current head, and either it
