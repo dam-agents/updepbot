@@ -62,9 +62,9 @@ second pull request while one is open: the pull-request run owns it until it lan
 ## The pull request
 
 Follow the `pr-to-green` skill for the open pull request whose branch starts with
-`branch_prefix`. One pass per fire: mark it ready, fix the red, answer the review,
-resolve the conflict, re-request the automated review, and stop. The next fire
-continues.
+`branch_prefix`. One pass per fire: fix the red, answer the review, resolve the
+conflict, re-request the automated review, and stop. The next fire continues. A
+draft is a person's decision; leave it alone.
 
 When the checks are green, the review is resolved and there is no conflict, assign
 and request `reviewer`, then report the link and a one-line summary. **Never merge.**

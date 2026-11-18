@@ -17,9 +17,10 @@ jobs:
         with:
           node-version: "22"
       - run: npm install --no-save ajv ajv-formats yaml
-      - name: kit.yaml matches the published schema
+      - name: kit.yaml matches the published and platform schemas
         run: |
-          curl -fsSL https://raw.githubusercontent.com/dam-agents/dam-starter-kits/main/kit.schema.json -o kit.schema.json
+          curl -fsSL https://raw.githubusercontent.com/dam-agents/dam-starter-kits/main/kit.schema.json -o catalog-kit.schema.json
+          curl -fsSL https://raw.githubusercontent.com/dam-agents/dam/main/helm/starter-kits/kit.schema.json -o platform-kit.schema.json
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             import { parse } from "yaml";
@@ -27,13 +28,15 @@ jobs:
             import addFormats from "ajv-formats";
             const ajv = new Ajv2020({ strict: false, allErrors: true });
             addFormats(ajv);
-            const validate = ajv.compile(JSON.parse(readFileSync("kit.schema.json", "utf8")));
             const kit = parse(readFileSync("kit.yaml", "utf8"));
-            if (!validate(kit)) {
-              console.error(validate.errors);
-              process.exit(1);
+            for (const file of ["catalog-kit.schema.json", "platform-kit.schema.json"]) {
+              const validate = ajv.compile(JSON.parse(readFileSync(file, "utf8")));
+              if (!validate(kit)) {
+                console.error(file, validate.errors);
+                process.exit(1);
+              }
+              console.log("ok kit.yaml against " + file);
             }
-            console.log("ok kit.yaml");
           '
 
   shell:

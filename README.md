@@ -16,7 +16,9 @@ no recipe for, or one whose only fix is a breaking change you did not authorise,
 reported back to you rather than worked around.
 
 A quiet repository costs nothing: both schedules carry a precheck that asks GitHub
-the cheap question first and declines the fire when there is nothing to do.
+the cheap question first and declines the fire when there is nothing to do. The sweep
+records the set it last reported, so an unfixable alert is not reported every day.
+The pull-request loop declines a failure it has already seen.
 
 ## What is in here
 
@@ -33,14 +35,17 @@ the cheap question first and declines the fire when there is nothing to do.
 
 Runtime state lives in `work/`, which is never tracked: `work/CONFIG.md` is the
 onboarding answer, `work/repo/` the maintained checkout, `work/repository.md` what
-the agent learned about building and testing it, and `work/reviewed/<n>` the
-changes-requested review the agent last answered on a pull request.
+the agent learned about building and testing it, `work/last-sweep.tsv` the set the
+last sweep reported, and `work/reviewed/<n>` the changes-requested review the agent
+last answered on a pull request.
 
 ## Setting it up
 
 Pick **UpDepBot** in the starter kit catalog, connect GitHub, and answer the agent's
 first message. It asks for the repository, the reviewer, what it may do about a
-breaking change, and which command builds and tests the repository.
+breaking change, and which command builds and tests the repository. The apply form
+shows both schedules; change their cadence or skip one there. Onboarding does not
+ask for cadence.
 
 The GitHub connection needs:
 
@@ -53,9 +58,9 @@ The GitHub connection needs:
 A repository that pulls from a private package registry needs an egress rule for that
 host, which the agent's owner adds after create.
 
-**The repository must be public** for the curated catalog to read this kit and seed
-the definition. A private definition can be used only through a private catalog on a
-GitHub Enterprise host, with that install's own credential.
+The curated catalog reads this kit anonymously from public GitHub, so the
+repository is public. A fork must be public too, or reached through a private
+catalog on a GitHub Enterprise host.
 
 ## The limits of the first version
 
@@ -65,5 +70,8 @@ GitHub Enterprise host, with that install's own credential.
   It does not run a scanner of its own, and it does not fix findings in code you
   wrote.
 - One pull request per sweep, so the fixes share a review and their lockfiles never
-  fight each other.
+  fight each other. New alerts that arrive while that pull request is open wait for
+  the next sweep after it lands.
+- It ignores pull requests from forks: only a branch in the repository itself is
+  its own.
 - It hands the pull request to a person and stops. Merging is theirs.

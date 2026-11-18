@@ -24,11 +24,14 @@ can supply or decide, never your own work:
 | `major` | What to do when the only fixed release is a breaking change |
 | `automated` | Whether an automated reviewer exists, and how it is asked for another round |
 | `verify` | The command that builds, checks and tests the repository |
-| `access` | Confirm the connection can read Dependabot alerts and push |
 
 Tick each with `complete_onboarding_step` as it is answered. Add, rename or drop a
 step if the conversation calls for it. `automated` and a vulnerability-issue label
 are optional; do not stall on them.
+
+The connection checks below are your own work, not a user step. When one fails, add
+an `access` step for the user, leave it unticked, and tick it once they fix the
+connection and the check passes.
 
 ## 2. Ask
 
@@ -39,7 +42,9 @@ confirming or correcting rather than composing from nothing.
   If it is on a GitHub Enterprise host, ask for that host too and record it as
   `host`; on github.com, leave `host` out.
 - **Reviewer** — the GitHub login to assign and request when a fix is green. This is
-  the person who decides the merge; you never merge.
+  the person who decides the merge; you never merge. It must not be the account the
+  connection signs in as: GitHub refuses a review from the pull request's author.
+  Check `gh api user --jq .login`; if it matches, ask for someone else.
 - **Breaking changes** — when the only fixed release is a major (or a minor whose
   changelog breaks something the repository uses), do you *report it and stop*
   (the default) or *migrate it in the same pull request*? Record `report` or
@@ -47,8 +52,9 @@ confirming or correcting rather than composing from nothing.
 - **Automated reviewer** — optional. Does the repository have a review bot whose
   approval should come before the hand-over? If so, its login, and how it is asked
   for another round: a label, a comment, or simply a push. A GitHub App cannot be
-  requested as a reviewer with `--add-reviewer`; its trigger is the only way. If
-  there is none, say so.
+  requested as a reviewer with `--add-reviewer`; its trigger is the only way. Record
+  its login without the `[bot]` suffix (`dam-code-protector`, not
+  `dam-code-protector[bot]`). If there is none, say so.
 - **Vulnerability issues** — optional. Does the repository also open issues for
   dependency findings, and with which label? If not, skip it.
 - **Verification** — after you clone the repository, propose the command its own

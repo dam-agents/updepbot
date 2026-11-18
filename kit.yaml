@@ -27,10 +27,8 @@ seed:
   self: true
   into: home
 
-# The fixes are version bumps, so the agent reaches the package registries of
-# the ecosystems the repository uses. `trusted` includes the public registries;
-# a private registry needs a rule its owner adds after create.
-egressPreset: trusted
+# The default egress preset (`trusted`) covers the public package registries. A
+# private registry needs a rule its owner adds after create.
 
 connections:
   - accepts: [github, github-enterprise]

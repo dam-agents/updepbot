@@ -1,8 +1,8 @@
 # Agent entry point
 
 This repository is an **agent definition**, not an application. Its operating manual
-is [`CLAUDE.md`](CLAUDE.md). Read that first, under any harness; it is the single
-source of truth for the run types, the configuration and the boundaries.
+is [`CLAUDE.md`](CLAUDE.md). Read that first; it is the single source of truth for
+the run types, the configuration and the boundaries.
 
 Reading order:
 

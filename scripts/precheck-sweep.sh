@@ -19,8 +19,8 @@ prefix="$(cfg branch_prefix)"; prefix="${prefix:-updepbot/}"
 # fight it for the same lockfiles; the pull-request schedule owns it until it
 # lands.
 if ! open=$(gh pr list --repo "$repo" --state open --limit 100 \
-  --json headRefName 2>/dev/null \
-  | jq -r --arg p "$prefix" '[.[] | select(.headRefName | startswith($p))] | length'); then
+  --json headRefName,isCrossRepository 2>/dev/null \
+  | jq -r --arg p "$prefix" '[.[] | select(.isCrossRepository == false) | select(.headRefName | startswith($p))] | length'); then
   exit 2
 fi
 [ "${open:-0}" -gt 0 ] && exit 1
@@ -36,7 +36,7 @@ issues=""
 label="$(cfg vuln_label)"
 if [ -n "$label" ]; then
   if ! issues=$(gh issue list --repo "$repo" --state open --label "$label" --limit 100 \
-    --json number,title --jq '.[] | "issue #\(.number)\t\(.title)"' 2>/dev/null); then
+    --json number,title,updatedAt --jq '.[] | "issue\t\(.number)\t\(.updatedAt)\t\(.title)"' 2>/dev/null); then
     exit 2
   fi
 fi
@@ -44,6 +44,18 @@ fi
 if [ -z "$alerts" ] && [ -z "$issues" ]; then
   exit 1
 fi
+
+# The set the last completed sweep reported. An unchanged set — an alert with no
+# fix, an unsupported ecosystem, a breaking-only fix left for the user — is not
+# worth another turn. A new or changed alert is.
+current="$( { printf '%s\n' "$alerts" | awk -F '\t' 'NF {print "alert\t"$1"\t"$6}'
+              printf '%s\n' "$issues" | awk -F '\t' 'NF {print "issue\t"$2"\t"$3}' ; } | sort )"
+last="$HOME/work/last-sweep.tsv"
+if [ -s "$last" ] && [ "$current" = "$(cat "$last")" ]; then
+  exit 1
+fi
+mkdir -p "$HOME/work"
+printf '%s\n' "$current" > "$HOME/work/last-sweep.pending"
 
 echo "Open in $repo as of this fire:"
 [ -n "$alerts" ] && printf 'alert\tseverity\tecosystem\tpackage\tmanifest\tfixed\n%s\n' "$alerts"

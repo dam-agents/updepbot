@@ -23,6 +23,15 @@ case "$(cfg major)" in
   *) echo "FAIL: major must be report or migrate — fix: write '- major: report'"; fail=1 ;;
 esac
 
+auto="$(cfg auto_reviewer)"
+trigger="$(cfg auto_review_trigger)"
+if [ -n "$auto" ] && [ -n "$trigger" ]; then
+  case "$trigger" in
+    label:*|comment:*|push) ;;
+    *) echo "FAIL: auto_review_trigger must be label:<name>, comment:<text> or push — fix: correct it in $CONFIG"; fail=1 ;;
+  esac
+fi
+
 repo="$(cfg repo)"
 if [ -n "$repo" ]; then
   gh api "repos/$repo" --jq .full_name >/dev/null 2>&1 || {
@@ -44,5 +53,11 @@ fi
   echo "FAIL: $HOME/work/repository.md is missing — fix: write what you learned about the repository (ONBOARDING.md step 4)"
   fail=1
 }
+
+me="$(gh api user --jq .login 2>/dev/null || true)"
+if [ -n "$me" ] && [ "$me" = "$(cfg reviewer)" ]; then
+  echo "FAIL: reviewer is the connection's own account ($me) — fix: name a different person, or use a bot account for the connection"
+  fail=1
+fi
 
 [ "$fail" -eq 0 ] && echo PASS || exit 1

@@ -39,8 +39,8 @@ VULN_LABEL="$(cfg vuln_label)"
 
 ## 1. Collect what is open
 
-The scheduled fire's prompt already carries the precheck's list. Start from it. If it
-does not, ask GitHub:
+The precheck's list is a hint, and it reads one page. Always fetch the full
+paginated list before you plan:
 
 ```sh
 gh api --paginate "repos/$REPO/dependabot/alerts?state=open&per_page=100" \
@@ -70,6 +70,13 @@ If both sources are empty, say so in one line and stop. Nothing is opened.
 ## 2. Prepare the checkout
 
 ```sh
+git -C "$HOME/work/repo" status --porcelain
+```
+
+A non-empty answer is someone else's work: report it and stop; never discard it.
+Then:
+
+```sh
 gh auth setup-git                 # idempotent; routes git through the connection
 git -C "$HOME/work/repo" fetch origin
 BASE="${BASE:-$(gh api "repos/$REPO" --jq .default_branch)}"
@@ -77,10 +84,9 @@ git -C "$HOME/work/repo" switch "$BASE"
 git -C "$HOME/work/repo" pull --ff-only
 ```
 
-If `base_branch` is in the config, use it instead of the default. If the working tree
-is dirty, report what is there and stop; never discard someone else's work. If more
-than one GitHub account is granted, the platform's `platform-github` skill says how
-to switch to the one that reaches this repository.
+If `base_branch` is in the config, use it instead of the default. If more than one
+GitHub account is granted, the platform's `platform-github` skill says how to
+switch to the one that reaches this repository.
 
 Create a branch under `branch_prefix` (default `updepbot/`):
 
@@ -109,7 +115,9 @@ Do this every sweep, not once: a repository grows ecosystems.
   `pnpm`), Python with `uv`, and `mise`. Go and Rust are not shipped; install them
   with `mise use -g go@<version>` / `mise use -g rust@<version>`, taking the
   version the repository pins (`go.mod` `toolchain`, `rust-toolchain.toml`,
-  `.node-version`, `.python-version`, `mise.toml`). A missing Yarn or Bun is
+  `.node-version`, `.python-version`, `mise.toml`). The image's `pnpm` is `aube`;
+  when `packageManager` names a pnpm version, run that version
+  (`mise use -g pnpm@<version>` or `npx pnpm@<version>`). A missing Yarn or Bun is
   installed the same way (`aube add -g yarn`, or `mise`). The trusted egress covers
   the public toolchain hosts; a host it does not cover is reported, not waited on
   from an unattended fire.
@@ -145,11 +153,15 @@ the workspace flag the tool uses.
 **npm** — pnpm, yarn, bun or npm, whichever lockfile is present.
 
 ```sh
-pnpm update <pkg>@<fixed>          # add --recursive for a workspace
-yarn up <pkg>@<fixed>              # Yarn 2+; Yarn 1: yarn upgrade <pkg>@<fixed>
-npm install <pkg>@<fixed>          # add --workspace <path> when the manifest is one
-bun update <pkg>@<fixed>
+pnpm add --save-exact <pkg>@<fixed>        # exact pin; drop --save-exact for a range
+yarn up <pkg>@<fixed>                      # check the manifest; Yarn 1: yarn upgrade
+npm install --save-exact <pkg>@<fixed>     # exact pin; `@^<fixed>` keeps a caret
+bun add --exact <pkg>@<fixed>
 ```
+
+The tool may change the pin style. Check the manifest diff and correct it, then
+re-lock. Add `--workspace <path>` or the tool's workspace flag when the manifest is
+one.
 
 In a workspace, target the package that owns the manifest: `pnpm --filter <name>
 update <pkg>@<fixed>`, `yarn workspace <name> up <pkg>@<fixed>`, or `npm install
@@ -163,12 +175,17 @@ is temporary.
 **Python** — uv, poetry, pipenv, pip-tools, or a plain requirements file.
 
 ```sh
-uv lock --upgrade-package <pkg> && uv sync
-poetry update <pkg>
-pipenv update <pkg>
-pip-compile --upgrade-package <pkg> <input>.in
+uv add "<pkg>==<fixed>"                    # direct dependency, exact
+poetry add "<pkg>==<fixed>"
+pipenv install "<pkg>==<fixed>"
+# pip-tools: change the .in to <pkg>==<fixed>, then pip-compile <input>.in
 # plain requirements.txt: change the pin to <pkg>==<fixed>
 ```
+
+For a transitive package, pin the fixed version in the tool's constraint or
+override and say so in the pull request. `uv lock --upgrade-package`,
+`poetry update` and `pipenv update` take the newest allowed version, not the
+lowest that clears the advisory.
 
 When the manifest bound excludes `fixed`, raise it to the lowest bound that allows
 the fixed release, in the style the file already uses, then re-lock.
@@ -176,12 +193,12 @@ the fixed release, in the style the file already uses, then re-lock.
 **Go** — `go.mod`.
 
 ```sh
-go get <module>@<fixed>
+go get <module>@v<fixed>
 go mod tidy
 ```
 
-A transitive module is fixed by `go get <module>@<fixed>`; if that adds a direct
-requirement, say so in the pull request.
+The advisory gives the Go version without the leading `v`. A transitive module is
+fixed the same way; if that adds a direct requirement, say so in the pull request.
 
 **Rust** — `Cargo.toml` and `Cargo.lock`.
 
@@ -230,7 +247,11 @@ hand-back — do not open a pull request; report instead.
 Read `From` from the manifest or lockfile before you write the body; the alert gives
 the vulnerable range, not the installed version.
 
-Write the body to a file:
+Write the body to a file (name it, so the command below uses it):
+
+```sh
+body="$(mktemp)"
+```
 
 ```markdown
 ## What
@@ -245,7 +266,7 @@ Fixes <n> Dependabot advisories in <repo>.
 - <advisory> — no released fix.
 - <advisory> — breaking change; policy is `report`.
 - <advisory> — no recipe for <ecosystem> yet.
-- <advisory> — fix reverted: `<verify>` failed with <failure>.
+- <advisory> — fix dropped: `<verify>` failed with <failure>.
 
 ## Verification
 
@@ -260,6 +281,14 @@ git -C "$HOME/work/repo" push -u origin "$branch"
 gh pr create --repo "$REPO" --base "$BASE" --head "$branch" \
   --title "fix(deps): clear <n> dependency advisories (<date>)" \
   --body-file "$body"
+```
+
+The precheck wrote `work/last-sweep.pending` with the set it found. Once the run is
+finished — a pull request opened or the hand-backs reported — move it into place so
+the next fire can decline an unchanged set:
+
+```sh
+[ -f "$HOME/work/last-sweep.pending" ] && mv "$HOME/work/last-sweep.pending" "$HOME/work/last-sweep.tsv"
 ```
 
 Do not assign the human reviewer here; the pull-request run does that when it is

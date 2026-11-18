@@ -16,10 +16,10 @@ repo="$(cfg repo)"
 reviewer="$(cfg reviewer)"
 [ -n "$repo" ] && [ -n "$reviewer" ] || exit 1
 prefix="$(cfg branch_prefix)"; prefix="${prefix:-updepbot/}"
-bot="$(cfg auto_reviewer)"
+bot="$(cfg auto_reviewer)"; bot="${bot%\[bot\]}"
 
 if ! prs=$(gh pr list --repo "$repo" --state open --limit 100 \
-  --json number,headRefName,isDraft,mergeable,reviewDecision,statusCheckRollup,reviewRequests,assignees 2>/dev/null); then
+  --json number,headRefName,isDraft,isCrossRepository,mergeable,reviewDecision,statusCheckRollup,reviewRequests,assignees,updatedAt 2>/dev/null); then
   exit 2
 fi
 
@@ -28,7 +28,7 @@ fi
 # has a new id, so this also skips a repeated wake while the reviewer is away.
 reviews='[]'
 for n in $(printf '%s' "$prs" | jq -r --arg p "$prefix" \
-  '.[] | select(.headRefName | startswith($p)) | select(.reviewDecision == "CHANGES_REQUESTED") | .number'); do
+  '.[] | select(.isCrossRepository == false) | select(.headRefName | startswith($p)) | select(.reviewDecision == "CHANGES_REQUESTED") | .number'); do
   if ! view=$(gh pr view "$n" --repo "$repo" --json reviews 2>/dev/null); then
     exit 2
   fi
@@ -47,21 +47,28 @@ if ! actionable=$(printf '%s' "$prs" | jq -r \
   --arg prefix "$prefix" \
   --arg bot "$bot" \
   --arg human "$reviewer" \
+  --arg last "${PLATFORM_LAST_RUN_AT:-}" \
   --argjson reviews "$reviews" '
   def state: (.conclusion // .state // "") | ascii_upcase;
+  def ts: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+  def lastRun: (if $last == "" then 0 else ($last | ts) end);
+  def failTime: ([ .statusCheckRollup[]? | select(state | IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","ACTION_REQUIRED","STARTUP_FAILURE")) | (.completedAt // .startedAt // .createdAt // .updatedAt // "") | select(. != "") | ts ] | max // 0);
   def failing: any(.statusCheckRollup[]?; state | IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","ACTION_REQUIRED","STARTUP_FAILURE"));
   def running: any(.statusCheckRollup[]?; (state == "") or ((.status // "") | ascii_upcase | IN("QUEUED","IN_PROGRESS","WAITING","PENDING")) or (state == "PENDING"));
-  def requested($who): ($who != "") and any(.reviewRequests[]?; ((.login // .slug // "") == $who));
+  def requested($who): ($who != "") and any(.reviewRequests[]?; ((.login // .slug // "") | sub("\\[bot\\]$"; "")) == $who);
   def handedOver: requested($human) or any(.assignees[]?; .login == $human);
   def changesOpen($n):
     any($reviews[]?; .number == $n and .id != .seen);
 
   [ .[]
+    | select(.isCrossRepository == false)
     | select(.headRefName | startswith($prefix))
     | . as $pr
-    | (if $pr.isDraft then "draft, not yet under review"
-       elif ($pr | failing) then "a check is failing"
-       elif $pr.mergeable == "CONFLICTING" then "conflicts with the base branch"
+    | (if $pr.isDraft then empty
+       elif ($pr | failing) and (($last == "") or (($pr | failTime) > lastRun)) then "a check is failing"
+       elif ($pr | failing) then empty
+       elif $pr.mergeable == "CONFLICTING" and (($last == "") or (($pr.updatedAt | ts) > lastRun)) then "conflicts with the base branch"
+       elif $pr.mergeable == "CONFLICTING" then empty
        elif $pr.reviewDecision == "CHANGES_REQUESTED" and changesOpen($pr.number) then "changes requested"
        elif $pr.reviewDecision == "CHANGES_REQUESTED" then empty
        elif $pr.reviewDecision == "APPROVED" and ($pr | running | not) and ($pr | handedOver | not) then "approved and green, ready to hand over"
