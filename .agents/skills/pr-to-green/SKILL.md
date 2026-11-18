@@ -83,8 +83,10 @@ Push the fixes. A push usually re-runs the checks.
 
 ## 5. Ask the automated reviewer for another round
 
-When `auto_reviewer` is set, and you have pushed fixes or answered a review, use the
-trigger the user named in `auto_review_trigger`:
+When `auto_reviewer` is set and it has not reviewed the current head, and either it
+is not already requested or you have pushed fixes or answered a review, use the
+trigger the user named in `auto_review_trigger`. If it is already requested and you
+have not pushed, wait for the next fire; do not ask twice.
 
 - `label:<name>` → `gh pr edit <n> --repo "$REPO" --add-label "<name>"`.
 - `comment:<text>` → `gh pr comment <n> --repo "$REPO" --body "<text>"`.
