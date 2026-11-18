@@ -105,6 +105,14 @@ Do this every sweep, not once: a repository grows ecosystems.
   workflows and its task definitions, in that order, and use the commands they use.
   If it drives everything through a task runner, drive everything through that task
   runner too.
+- **Whether the toolchain is installed.** The image ships Node with `aube` (also as
+  `pnpm`), Python with `uv`, and `mise`. Go and Rust are not shipped; install them
+  with `mise use -g go@<version>` / `mise use -g rust@<version>`, taking the
+  version the repository pins (`go.mod` `toolchain`, `rust-toolchain.toml`,
+  `.node-version`, `.python-version`, `mise.toml`). A missing Yarn or Bun is
+  installed the same way (`aube add -g yarn`, or `mise`). The trusted egress covers
+  the public toolchain hosts; a host it does not cover is reported, not waited on
+  from an unattended fire.
 - **How it pins.** Exact stays exact; a range stays a range; a lockfile is
   regenerated with its own tool, never hand-edited.
 - **Whether it has a minimum release age.** If the policy documents a security
