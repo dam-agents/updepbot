@@ -61,16 +61,18 @@ Run these before writing anything. On failure, say exactly what failed and leave
 the matching step unticked: the user can fix the connection, you cannot.
 
 ```sh
+# only on a GitHub Enterprise host:
+# export GH_HOST="<host>"
 gh auth setup-git
 gh api "repos/<repo>" --jq '.full_name + " " + (.default_branch // "")'
 gh api "repos/<repo>" --jq '.permissions.push'
 gh api "repos/<repo>/dependabot/alerts?state=open&per_page=1"
 ```
 
-On a GitHub Enterprise host, export it first so every call below targets it:
-`export GH_HOST="<host>"`.
+On a GitHub Enterprise host, export the host first so every call, clone and push
+below targets it.
 
-- The first call must succeed. A 403 or 404 is a connection or scope problem.
+- The first `gh api` call must succeed. A 403 or 404 is a connection or scope problem.
 - `permissions.push` must be `true`. A GitHub App can answer differently; if it is
   not `true`, say that a push may still be refused and ask the user to confirm the
   connection has contents write.
