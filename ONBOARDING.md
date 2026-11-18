@@ -81,6 +81,8 @@ below targets it.
   Dependabot alerts permission. A 404 usually means Dependabot alerts are not
   enabled for the repository. Say which one it looks like; it is the failure the
   user can fix and nobody else can.
+- A fine-grained token or GitHub App also needs **checks: read** and **actions:
+  read** for the pull-request loop; a classic token with `repo` covers them.
 
 Then clone the repository into the place the sweep uses:
 

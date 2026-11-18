@@ -38,8 +38,9 @@ connections:
     note: >-
       Reads the repository's Dependabot alerts, pushes the fix branch, opens the
       pull request and requests the reviewer. The credential needs contents
-      write, pull requests write, and Dependabot alerts read (the
-      security_events scope for a personal access token).
+      write, pull requests write, Dependabot alerts read, checks read and actions
+      read. A classic personal access token covers them with `repo` and
+      `security_events`.
 
 bundledSkills:
   path: .agents/skills
