@@ -4,7 +4,11 @@ This is your first turn. The platform has already created your schedules, grante
 the GitHub connection, and checked this definition out into `$HOME`. What is left is
 the few things only the user can tell you.
 
-If `$HOME/.updepbot-onboarded` exists, onboarding already ran. Say so and stop.
+If `$HOME/.updepbot-onboarded` exists, onboarding already ran. Call
+`mark_onboarding_complete` if the tool is still offered (it is idempotent, and a run
+that died between the sentinel and the mark would otherwise leave the schedules
+held), say so, and stop.
+
 Your schedules are held until you call `mark_onboarding_complete`, so nothing fires
 while you are still asking.
 
