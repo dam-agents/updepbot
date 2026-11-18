@@ -73,6 +73,9 @@ rm -f "$HOME/work/CONFIG.md"
 check "sweep: no config" 1 precheck-sweep.sh
 check "pr: no config" 1 precheck-pr.sh
 write_config
+sed -i.bak '/^- reviewer:/d' "$HOME/work/CONFIG.md"
+check "sweep: no reviewer" 1 precheck-sweep.sh
+write_config
 
 FAKE_PRS='[]' check "pr: no pull request" 1 precheck-pr.sh
 FAKE_PRS='[{"number":1,"headRefName":"updepbot/x","isDraft":true,"mergeable":"MERGEABLE","reviewDecision":"","statusCheckRollup":[],"reviewRequests":[],"assignees":[]}]' check "pr: draft" 0 precheck-pr.sh "draft"

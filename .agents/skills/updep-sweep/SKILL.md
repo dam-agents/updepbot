@@ -19,8 +19,8 @@ allowed-tools:
 # Sweep the vulnerabilities
 
 You maintain **one** repository, the one named by `repo` in `work/CONFIG.md`. Work in
-`work/repo`. Read the config first; if it is missing, say onboarding has not run and
-stop.
+`work/repo`. Read the config first; if it is missing, or `reviewer` is empty, say
+onboarding has not finished and stop.
 
 Nothing below assumes a task runner, a package manager or a pinning policy. Detect
 them from the repository in front of you.

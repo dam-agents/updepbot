@@ -11,7 +11,8 @@ command -v jq >/dev/null 2>&1 || exit 2
 
 host="$(cfg host)"; [ -n "$host" ] && export GH_HOST="$host"
 repo="$(cfg repo)"
-[ -n "$repo" ] || exit 1
+reviewer="$(cfg reviewer)"
+[ -n "$repo" ] && [ -n "$reviewer" ] || exit 1
 prefix="$(cfg branch_prefix)"; prefix="${prefix:-updepbot/}"
 
 # A fix pull request is still open from the last sweep. Sweeping again would
