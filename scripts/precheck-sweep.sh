@@ -6,43 +6,45 @@
 # prompt, so the turn does not re-derive what the cheap check just found.
 set -uo pipefail
 
-settings="$HOME/settings.env"
-# Not onboarded yet: there is no repository to sweep. Schedules are held until
-# onboarding completes anyway, so this only matters if the file is lost later.
-[ -r "$settings" ] || exit 1
-# shellcheck source=/dev/null
-. "$settings"
+command -v jq >/dev/null 2>&1 || exit 2
+. "$(dirname "$0")/lib/config.sh"
 
-: "${REPO:?}"
-: "${FIX_BRANCH_PREFIX:=chore/cve-}"
+host="$(cfg host)"; [ -n "$host" ] && export GH_HOST="$host"
+repo="$(cfg repo)"
+[ -n "$repo" ] || exit 1
+prefix="$(cfg branch_prefix)"; prefix="${prefix:-updepbot/}"
 
 # A fix pull request is still open from the last sweep. Sweeping again would
 # fight it for the same lockfiles; the pull-request schedule owns it until it
 # lands.
-open_fix_prs=$(gh pr list --repo "$REPO" --state open --limit 50 \
-  --json headRefName --jq "[.[] | select(.headRefName | startswith(\"$FIX_BRANCH_PREFIX\"))] | length" 2>/dev/null)
-if [ "${open_fix_prs:-0}" -gt 0 ]; then
-  exit 1
+if ! open=$(gh pr list --repo "$repo" --state open --limit 100 \
+  --json headRefName 2>/dev/null \
+  | jq -r --arg p "$prefix" '[.[] | select(.headRefName | startswith($p))] | length'); then
+  exit 2
+fi
+[ "${open:-0}" -gt 0 ] && exit 1
+
+# One page is enough to answer "is there anything at all?"; the run paginates
+# when it needs the full list.
+if ! alerts=$(gh api "repos/$repo/dependabot/alerts?state=open&per_page=100" \
+  --jq '.[] | "\(.number)\t\(.security_advisory.severity)\t\(.dependency.package.ecosystem)\t\(.dependency.package.name)\t\(.dependency.manifest_path)\t\(.security_vulnerability.first_patched_version.identifier // "no fix")"' 2>/dev/null); then
+  exit 2
 fi
 
-alerts=$(gh api "repos/$REPO/dependabot/alerts?state=open&per_page=100" \
-  --jq '.[] | "\(.security_advisory.severity)\t\(.dependency.package.ecosystem)\t\(.dependency.package.name)\t\(.security_advisory.cve_id // .security_advisory.ghsa_id)"' 2>/dev/null)
-# GitHub could not answer. A broken precheck allows the run rather than
-# silencing the sweep for as long as the outage lasts — an empty answer and a
-# failed one look identical otherwise.
-[ $? -eq 0 ] || exit 2
-
 issues=""
-if [ -n "${VULN_LABEL:-}" ]; then
-  issues=$(gh issue list --repo "$REPO" --state open --label "$VULN_LABEL" --limit 50 \
-    --json number,title --jq '.[] | "issue #\(.number)\t\(.title)"' 2>/dev/null)
+label="$(cfg vuln_label)"
+if [ -n "$label" ]; then
+  if ! issues=$(gh issue list --repo "$repo" --state open --label "$label" --limit 100 \
+    --json number,title --jq '.[] | "issue #\(.number)\t\(.title)"' 2>/dev/null); then
+    exit 2
+  fi
 fi
 
 if [ -z "$alerts" ] && [ -z "$issues" ]; then
   exit 1
 fi
 
-echo "Open in $REPO as of this fire:"
-[ -n "$alerts" ] && printf '%s\n' "$alerts"
+echo "Open in $repo as of this fire:"
+[ -n "$alerts" ] && printf 'alert\tseverity\tecosystem\tpackage\tmanifest\tfixed\n%s\n' "$alerts"
 [ -n "$issues" ] && printf '%s\n' "$issues"
 exit 0
