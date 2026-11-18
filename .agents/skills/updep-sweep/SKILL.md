@@ -244,6 +244,17 @@ One pull request per sweep, not one per alert: the fixes share lockfiles, so sep
 pull requests would conflict. If there is nothing to fix — every finding is a
 hand-back — do not open a pull request; report instead.
 
+Check the closed pull requests first. A bump a person closed without merging is a
+decision, not a queue item:
+
+```sh
+gh pr list --repo "$REPO" --state closed --limit 50 \
+  --json number,headRefName,mergedAt,title \
+  | jq -r --arg p "$PREFIX" '.[] | select(.headRefName | startswith($p)) | select(.mergedAt == null) | "#\(.number) \(.title)"'
+```
+
+An advisory in one of those is handed back, not reopened.
+
 Read `From` from the manifest or lockfile before you write the body; the alert gives
 the vulnerable range, not the installed version.
 
