@@ -4,16 +4,17 @@ A DAM [starter kit](https://github.com/dam-agents/dam/blob/main/docs/architectur
 an agent that keeps one repository's known vulnerabilities from piling up.
 
 Every day it asks GitHub what Dependabot has open against the repository, fixes every
-advisory that has a released fix — in npm, Python, Go and Rust, whichever the
-repository actually uses — verifies against the repository's own checks, and opens
-**one** pull request. Then it stays with that pull request: reads the failing checks,
-answers the review, resolves conflicts, and hands it to a reviewer you named once it
-is green.
+advisory that has a released fix — in whichever of the ecosystems Dependabot alerts
+cover the repository uses: npm, Python, Go, Rust, Maven or Gradle, NuGet, Bundler,
+Composer, Hex, pub, Swift, or GitHub Actions — verifies against the repository's own
+checks, and opens **one** pull request. Then it stays with that pull request: reads
+the failing checks, answers the review, resolves conflicts, and hands it to a
+reviewer you named once it is green.
 
 It never merges, never suppresses a finding, and never disables a test to get a bump
-through. An advisory with no released fix, one in an ecosystem the first version has
-no recipe for, or one whose only fix is a breaking change you did not authorise, is
-reported back to you rather than worked around.
+through. An advisory with no released fix, one no recipe can place, or one whose only
+fix is a breaking change you did not authorise, is reported back to you rather than
+worked around.
 
 A quiet repository costs nothing: both schedules carry a precheck that asks GitHub
 the cheap question first and declines the fire when there is nothing to do. The sweep
@@ -28,7 +29,7 @@ The pull-request loop declines a failure it has already seen.
 | `ONBOARDING.md` | the first turn: what the agent asks you, and what it does with the answers |
 | `CLAUDE.md` | the agent's operating manual and its boundaries |
 | `AGENTS.md` | a pointer to `CLAUDE.md`, for any harness |
-| `.agents/skills/updep-sweep` | collect, fix, verify, open the pull request |
+| `.agents/skills/updep-sweep` | collect, fix, verify, open the pull request; one recipe per ecosystem under `references/` |
 | `.agents/skills/pr-to-green` | drive that pull request until it is ready for a person |
 | `scripts/precheck-*.sh` | the checks that decide each scheduled fire |
 | `scripts/verify-onboarding.sh` | the shape check onboarding must pass |
@@ -54,7 +55,10 @@ The GitHub connection needs:
   reviewer;
 - **Dependabot alerts: read** — `security_events` for a personal access token, the
   Dependabot alerts permission for a GitHub App;
-- **checks: read, actions: read** — to read a failing check and its log.
+- **checks: read, actions: read** — to read a failing check and its log;
+- **workflows: write** — only when a fix touches `.github/workflows/` (or the
+  `workflow` scope on a classic token); without it GitHub refuses the push and the
+  agent reports the Actions alert back to you instead of failing the sweep.
 
 You can name the connection's own account as the reviewer. GitHub will not request a
 review from a pull request's author, so the agent assigns the pull request to that
@@ -70,8 +74,8 @@ catalog on a GitHub Enterprise host.
 
 ## The limits of the first version
 
-- It fixes npm, Python, Go and Rust. Alerts in other ecosystems are reported, not
-  guessed at.
+- It has a recipe for every ecosystem Dependabot alerts cover, one file per
+  ecosystem. An alert no recipe can place is reported, not guessed at.
 - It reads Dependabot alerts and, if you name a label, open issues with that label.
   It does not run a scanner of its own, and it does not fix findings in code you
   wrote.

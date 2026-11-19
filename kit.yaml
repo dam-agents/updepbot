@@ -8,9 +8,10 @@ name: UpDepBot
 tagline: Keeps known vulnerabilities from piling up in one repository.
 description: >-
   Sweeps one repository's open Dependabot alerts on a schedule, fixes every
-  advisory that has a released fix in npm, Python, Go or Rust, whichever the
-  repository uses, verifies with the repository's own checks, and opens one
-  pull request.
+  advisory that has a released fix in whichever ecosystem the repository uses —
+  npm, Python, Go, Rust, Maven or Gradle, NuGet, Bundler, Composer, Hex, pub,
+  Swift or GitHub Actions — verifies with the repository's own checks, and opens
+  one pull request.
   Then it drives that pull request: reads the failing checks, answers the
   review, resolves conflicts, and hands it to the reviewer you named once it is
   green. It never merges. An advisory with no released fix, or one whose only
@@ -38,8 +39,10 @@ connections:
       pull request and assigns the reviewer (and requests a review when the reviewer
       is not the pull request's author). The credential needs contents
       write, pull requests write, Dependabot alerts read, checks read and actions
-      read. A classic personal access token covers them with `repo` and
-      `security_events`.
+      read; a fix under `.github/workflows/` also needs Workflows write, and
+      without it the agent reports that alert instead of pushing. A classic
+      personal access token covers them with `repo`, `security_events` and
+      (for actions fixes) `workflow`.
 
 bundledSkills:
   path: .agents/skills
