@@ -50,10 +50,16 @@ ask for cadence.
 The GitHub connection needs:
 
 - **contents: write** — to push the fix branch;
-- **pull requests: write** — to open the pull request and request the reviewer;
+- **pull requests: write** — to open the pull request and assign or request the
+  reviewer;
 - **Dependabot alerts: read** — `security_events` for a personal access token, the
   Dependabot alerts permission for a GitHub App;
 - **checks: read, actions: read** — to read a failing check and its log.
+
+You can name the connection's own account as the reviewer. GitHub will not request a
+review from a pull request's author, so the agent assigns the pull request to that
+account and skips the review request; for anyone else it requests the review and
+assigns.
 
 A repository that pulls from a private package registry needs an egress rule for that
 host, which the agent's owner adds after create.

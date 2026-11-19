@@ -55,8 +55,8 @@ if ! actionable=$(printf '%s' "$prs" | jq -r \
   def failTime: ([ .statusCheckRollup[]? | select(state | IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","ACTION_REQUIRED","STARTUP_FAILURE")) | (.completedAt // .startedAt // .createdAt // .updatedAt // "") | select(. != "") | ts ] | max // 0);
   def failing: any(.statusCheckRollup[]?; state | IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","ACTION_REQUIRED","STARTUP_FAILURE"));
   def running: any(.statusCheckRollup[]?; (state == "") or ((.status // "") | ascii_upcase | IN("QUEUED","IN_PROGRESS","WAITING","PENDING")) or (state == "PENDING"));
-  def requested($who): ($who != "") and any(.reviewRequests[]?; ((.login // .slug // "") | sub("\\[bot\\]$"; "")) == $who);
-  def handedOver: requested($human) or any(.assignees[]?; .login == $human);
+  def requested($who): ($who != "") and any(.reviewRequests[]?; ((.login // .slug // "") | ascii_downcase | sub("\\[bot\\]$"; "")) == ($who | ascii_downcase));
+  def handedOver: requested($human) or any(.assignees[]?; ((.login // "") | ascii_downcase) == ($human | ascii_downcase));
   def changesOpen($n):
     any($reviews[]?; .number == $n and .id != .seen);
 
