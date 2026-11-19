@@ -91,6 +91,12 @@ below targets it.
   user can fix and nobody else can.
 - A fine-grained token or GitHub App also needs **checks: read** and **actions:
   read** for the pull-request loop; a classic token with `repo` covers them.
+- A fix that touches `.github/workflows/` needs **workflows: write** too (the
+  `workflow` scope on a classic token). Check whether any open alert is for GitHub
+  Actions, and say so now rather than after a refusal:
+  `gh api "repos/<repo>/dependabot/alerts?state=open" --jq 'any(.[]; .dependency.package.ecosystem=="actions")'`.
+  If it is and the connection lacks the permission, the sweep reports that alert as
+  needing the user's decision instead of failing.
 
 Then clone the repository into the place the sweep uses:
 
@@ -112,7 +118,8 @@ Read, in this order:
    `justfile`, `Taskfile.yml`, `.mise/config.toml`, `tox.ini`, `noxfile.py`, or the
    commands in the contributor docs.
 4. The manifests and lockfiles present, so you know which ecosystems the alerts can
-   name.
+   name, and whether any open alert is for GitHub Actions (see the Workflows note in
+   step 3).
 5. The pin style: exact versions, ranges, lockfile-only.
 
 Write what you found to `work/repository.md`: ecosystems, package managers, the

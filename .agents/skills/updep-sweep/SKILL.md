@@ -2,11 +2,11 @@
 name: updep-sweep
 description: >
   Sweep one repository's open Dependabot alerts, fix every advisory that has a
-  released fix in npm, Python, Go or Rust, verify with the repository's own
-  checks, and open one pull request. Repository-agnostic: detects the package
-  manager, lockfile, task runner and pinning style instead of assuming any of
-  them. Use on the daily sweep fire, or when asked to fix dependency
-  vulnerabilities.
+  released fix in any ecosystem Dependabot alerts cover, verify with the
+  repository's own checks, and open one pull request. Repository-agnostic:
+  detects the package manager, lockfile, task runner and pinning style instead of
+  assuming any of them. Use on the daily sweep fire, or when asked to fix
+  dependency vulnerabilities.
 allowed-tools:
   - Bash
   - Read
@@ -106,28 +106,24 @@ Do this every sweep, not once: a repository grows ecosystems.
   `package-lock.json` → npm. For Python, `uv.lock` → uv, `poetry.lock` → poetry,
   `Pipfile.lock` → pipenv, `pip-compile` output → pip-tools, otherwise the
   `requirements*.txt` or `pyproject.toml` bound. For Go, `go.mod` + `go.sum`. For
-  Rust, `Cargo.toml` + `Cargo.lock`.
+  Rust, `Cargo.toml` + `Cargo.lock`. Every other ecosystem's reference file says
+  what owns its manifest.
 - **How the repository builds and tests.** Read its contributor docs, its CI
   workflows and its task definitions, in that order, and use the commands they use.
   If it drives everything through a task runner, drive everything through that task
   runner too.
 - **Whether the toolchain is installed.** The image ships Node with `aube` (also as
-  `pnpm`), Python with `uv`, and `mise`. Go and Rust are not shipped; install them
-  with `mise use -g go@<version>` / `mise use -g rust@<version>`, taking the
-  version the repository pins (`go.mod` `toolchain`, `rust-toolchain.toml`,
-  `.node-version`, `.python-version`, `mise.toml`). The image's `pnpm` is `aube`;
-  when `packageManager` names a pnpm version, run that version
-  (`mise use -g pnpm@<version>` or `npx pnpm@<version>`). A missing Yarn or Bun is
-  installed the same way (`aube add -g yarn`, or `mise`). The trusted egress covers
-  the public toolchain hosts; a host it does not cover is reported, not waited on
-  from an unattended fire.
+  `pnpm`), Python with `uv`, and `mise`. Every other ecosystem's reference file has
+  a **Toolchain** section naming the tool and how to install it, `mise` first, at
+  the version the repository pins. The trusted egress covers the public toolchain
+  hosts; a host it does not cover is reported, not waited on from an unattended
+  fire.
 - **How it pins.** Exact stays exact; a range stays a range; a lockfile is
   regenerated with its own tool, never hand-edited.
 - **Whether it has a minimum release age.** If the policy documents a security
   exception, take it for this fix and say so in the pull request. If it does not,
   a fixed release younger than the floor is reported and retried next sweep. Check
-  the release date at the registry (`npm view <pkg> time.<version>`, the PyPI JSON,
-  `go list -m -json <module>@<version>`, crates.io) or in the changelog.
+  the release date at the registry the reference file names, or in the changelog.
 
 Write what you learn into `work/repository.md`, and correct it when it turns out to
 be wrong.
@@ -136,7 +132,10 @@ be wrong.
 
 Fix every alert that has a released fix and an ecosystem recipe. Do not ask which
 ones. Use the **lowest released version that clears the advisory**: `fixed` from the
-alert, unless the repository already resolves higher.
+alert, unless the repository already resolves higher, or the tool's own audit
+refuses that release (npm's bad-release flag, Composer's advisory policy) — then
+the lowest release it accepts, said in the pull request. When several alerts name
+one package, fix once to the highest `fixed` among them.
 
 A fix is a **breaking change** when the major version moves, or, for a `0.x`
 dependency, the minor version moves. Read the changelog when unsure. What to do is
@@ -147,73 +146,36 @@ the `major` policy in `work/CONFIG.md`:
   check each breaking change against the repository's code, migrate, and verify. A
   migration that needs a product decision is reported, not guessed.
 
-Recipes, one per supported ecosystem. Run them at the manifest's directory, or with
-the workspace flag the tool uses.
+Each alert's `dependency.package.ecosystem` names one file under `references/`.
+Read only the files the open alerts need: this skill is the flow, they are the
+tool-specific commands, the lockfile each tool regenerates, the pin style it keeps
+and what "verified" means for it.
 
-**npm** — pnpm, yarn, bun or npm, whichever lockfile is present.
+| alert `ecosystem` | file | covers |
+|---|---|---|
+| `npm` | [npm.md](references/npm.md) | npm, pnpm, yarn, bun |
+| `pip` | [python.md](references/python.md) | pip, uv, poetry, pipenv, pip-tools |
+| `go` | [go.md](references/go.md) | Go modules |
+| `rust` | [rust.md](references/rust.md) | Cargo |
+| `maven` | [maven.md](references/maven.md) | Maven, Gradle (its manifests share this value) |
+| `nuget` | [nuget.md](references/nuget.md) | PackageReference, central package management, packages.config |
+| `rubygems` | [rubygems.md](references/rubygems.md) | Bundler, gemspecs |
+| `composer` | [composer.md](references/composer.md) | Composer |
+| `erlang` | [erlang.md](references/erlang.md) | Hex, through mix |
+| `pub` | [pub.md](references/pub.md) | pub, Dart and Flutter |
+| `swift` | [swift.md](references/swift.md) | Swift Package Manager |
+| `actions` | [actions.md](references/actions.md) | GitHub Actions workflows |
 
-```sh
-pnpm add --save-exact <pkg>@<fixed>        # exact pin; drop --save-exact for a range
-yarn up <pkg>@<fixed>                      # check the manifest; Yarn 1: yarn upgrade
-npm install --save-exact <pkg>@<fixed>     # exact pin; `@^<fixed>` keeps a caret
-bun add --exact <pkg>@<fixed>
-```
+Run a recipe at the manifest's directory, or with the workspace flag its tool uses.
+A file marked **Unverified** was not run end to end when it was written: use it, but
+if a step does not do what it says, report the alert instead of forcing it.
 
-The tool may change the pin style. Check the manifest diff and correct it, then
-re-lock. Add `--workspace <path>` or the tool's workspace flag when the manifest is
-one.
+An ecosystem not in the table is reported as "no recipe for this ecosystem yet".
+Do not guess at a command, do not edit a lockfile by hand, and do not suppress the
+alert.
 
-In a workspace, target the package that owns the manifest: `pnpm --filter <name>
-update <pkg>@<fixed>`, `yarn workspace <name> up <pkg>@<fixed>`, or `npm install
---workspace <path> <pkg>@<fixed>`. Do not update the root by accident.
-
-A transitive package: `pnpm why <pkg>` / `npm ls <pkg>` / `yarn why <pkg>` finds the
-direct dependency to bump. Only when no released direct version fixes it, use
-`pnpm.overrides`, `overrides` or `resolutions`, and say in the pull request that it
-is temporary.
-
-**Python** — uv, poetry, pipenv, pip-tools, or a plain requirements file.
-
-```sh
-uv add "<pkg>==<fixed>"                    # direct dependency, exact
-poetry add "<pkg>==<fixed>"
-pipenv install "<pkg>==<fixed>"
-# pip-tools: change the .in to <pkg>==<fixed>, then pip-compile <input>.in
-# plain requirements.txt: change the pin to <pkg>==<fixed>
-```
-
-For a transitive package, pin the fixed version in the tool's constraint or
-override and say so in the pull request. `uv lock --upgrade-package`,
-`poetry update` and `pipenv update` take the newest allowed version, not the
-lowest that clears the advisory.
-
-When the manifest bound excludes `fixed`, raise it to the lowest bound that allows
-the fixed release, in the style the file already uses, then re-lock.
-
-**Go** — `go.mod`.
-
-```sh
-go get <module>@v<fixed>
-go mod tidy
-```
-
-The advisory gives the Go version without the leading `v`. A transitive module is
-fixed the same way; if that adds a direct requirement, say so in the pull request.
-
-**Rust** — `Cargo.toml` and `Cargo.lock`.
-
-```sh
-cargo update -p <crate> --precise <fixed>
-```
-
-If the manifest bound does not allow it, raise the bound to the lowest requirement
-that does, then `cargo update -p <crate>`.
-
-**Anything else** — Maven, Gradle, Bundler, Composer, NuGet, Docker, GitHub Actions,
-a vendored binary: report it as "no recipe for this ecosystem yet". Do not guess at
-a command, do not edit a lockfile by hand, and do not suppress the alert.
-
-Commit as you go, one commit per ecosystem, naming the advisories it clears:
+Commit as you go, one commit per ecosystem, naming the advisories it clears. Commit
+the GitHub Actions fix last: a refused workflow push drops exactly that commit.
 
 ```sh
 git add <the manifests and lockfiles you touched>
@@ -283,6 +245,9 @@ Fixes <n> Dependabot advisories in <repo>.
 
 `<verify>` — pass.
 ```
+
+A push that changes `.github/workflows/` needs Workflows write and can be refused;
+`references/actions.md` says how to detect that and hand the alert back.
 
 Push the branch, then open it ready, not as a draft, so the repository's review
 starts:
